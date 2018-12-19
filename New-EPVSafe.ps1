@@ -19,8 +19,14 @@
 
 	VERSION HISTORY:
 	1.0 12/05/2018 - Initial release
+	1.1 12/19/2018 - Added fucntion for bulk import
 #>
 ##########################################################################################
+
+param (
+	[Parameter(Mandatory=$true)][switch]$bulk,
+	[string]$csvPath
+)
 
 ######################## IMPORT MODULES/ASSEMBLY LOADING #################################
 
@@ -62,11 +68,11 @@ Function EPV-GetAPIAccount {
 	return $ret
 }
 
-Function EPV-CreateSafe($safeName, $descriptoin) {
+Function EPV-CreateSafe($safeName, $description) {
 	$data = @{
 		safe = @{
 			SafeName=$safeName
-			Description=$descriptoin
+			Description=$description
 			OLACEnabled=$false
 			ManagingCPM="PasswordManager"
 			NumberOfVersionsRetention=5
@@ -219,13 +225,40 @@ Function EPV-AddAccount {
 	
 	return $ret
 }
+
+Function MAIN($mortal, $privAccount, $safeDescription) {
+	$result = EPV-CreateSafe $mortal $safeDescription
+
+	If ($result) {
+		Write-Host "Safe created..."
+	} Else {
+		Write-Host "Safe was not created..." -ForegroundColor Red
+		Write-Host "Exiting script..." -ForegroundColor Red
+	}
+
+	$result = EPV-AddSafeMember $mortal "all"
+	If ($result) {
+		Write-Host "Safe member was added..."
+	} Else {
+		Write-Host "Safe member was not added..." -ForegroundColor Red
+		Write-Host "Exiting script..." -ForegroundColor Red
+	}
+
+	$result = EPV-AddSafeMember $adminGroup "admin"
+	If ($result) {
+		Write-Host "Safe member was added..."
+	} Else {
+		Write-Host "Safe member was not added..." -ForegroundColor Red
+		Write-Host "Exiting script..." -ForegroundColor Red
+	}
+
+	$result = EPV-AddAccount
+	Write-Host "Account was added..."
+}
+
 ########################## END FUNCTIONS #################################################
 
 ########################## MAIN SCRIPT BLOCK #############################################
-
-$safeToCreate = Read-Host "What is the name of the safe that needs to be created"
-$ownerOfSafe = Read-Host "What is the name of the user that will own the safe"
-$safeDescription = Read-Host "Please provide a descriptoin for the safe"
 
 #$cred = EPV-GetAPIAccount
 
@@ -233,33 +266,26 @@ $login = EPV-Login Safe_Creator Cyberark1
 $header = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
 $header.Add("Authorization", $login.CyberArkLogonResult)
 
-$result = EPV-CreateSafe $safeToCreate $safeDescription
-
-If ($result) {
-	Write-Host "Safe created..."
+If ($bulk) {
+	$csvObject = (Import-Csv $csvPath)
+	
+	ForEach ($item in $csvObject) {
+		$mortal = $item.Name
+		$priv = $item."Privliged Account"
+		$ADDetails = (Get-ADUser $mortal)
+		$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
+		
+		MAIN $mortal $priv $description
+	}
 } Else {
-	Write-Host "Safe was not created..." -ForegroundColor Red
-	Write-Host "Exiting script..." -ForegroundColor Red
+	$safeToCreate = Read-Host "What is the name of the user that needs the safe"
+	$priv = Read-Host "What is the privliged account for this user"
+	
+	$ADDetails = (Get-ADUser $safeToCreate)
+	$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
+	
+	MAIN $safeToCreate $priv $description
 }
-
-$result = EPV-AddSafeMember $ownerOfSafe "all"
-If ($result) {
-	Write-Host "Safe member was added..."
-} Else {
-	Write-Host "Safe member was not added..." -ForegroundColor Red
-	Write-Host "Exiting script..." -ForegroundColor Red
-}
-
-$result = EPV-AddSafeMember $adminGroup "admin"
-If ($result) {
-	Write-Host "Safe member was added..."
-} Else {
-	Write-Host "Safe member was not added..." -ForegroundColor Red
-	Write-Host "Exiting script..." -ForegroundColor Red
-}
-
-$result = EPV-AddAccount
-Write-Host "Account was added..."
 
 EPV-Logoff
 
