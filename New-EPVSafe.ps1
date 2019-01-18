@@ -20,6 +20,7 @@
 	VERSION HISTORY:
 	1.0 12/05/2018 - Initial release
 	1.1 12/19/2018 - Added fucntion for bulk import
+	1.2 01/18/2019 - Added check for existing safe before creation
 #>
 ##########################################################################################
 
@@ -40,6 +41,8 @@ $adminGroup = "CyberarkVaultAdmins"
 
 $address = "cyberarkdemo.com"
 $platformId = "WinDomain"
+
+$pvwagw = "PVWAGWAccounts"
 
 ########################## START FUNCTIONS ###############################################
 
@@ -69,21 +72,27 @@ Function EPV-GetAPIAccount {
 }
 
 Function EPV-CreateSafe($safeName, $description) {
-	$data = @{
-		safe = @{
-			SafeName=$safeName
-			Description=$description
-			OLACEnabled=$false
-			ManagingCPM="PasswordManager"
-			NumberOfVersionsRetention=5
+	$existingSafe = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes?query=$safeName" -Method GET -Headers $header -ContentType 'application/json'
+	
+	If(!($existingSafe.SearchSafesResult)) {
+		Write-Host "$safeName does not exist creating it..." -ForegroundColor Yellow
+		
+		$data = @{
+			safe = @{
+				SafeName=$safeName
+				Description=$description
+				OLACEnabled=$false
+				ManagingCPM="PasswordManager"
+				NumberOfVersionsRetention=5
+			}
 		}
-	}
-	
-	$data = $data | ConvertTo-Json
+		
+		$data = $data | ConvertTo-Json
 
-	$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes" -Method POST -Body $data -Headers $header -ContentType 'application/json'
-	
-	return $ret
+		$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes" -Method POST -Body $data -Headers $header -ContentType 'application/json'
+	} Else {
+		Write-Host "$safeName exists skipping creation..." -ForegroundColor Yellow
+	}
 }
 
 Function EPV-AddSafeMember($owner, $permsType) {
@@ -201,6 +210,58 @@ Function Get-SafePermissions($owner, $type) {
 			}
 			$PERMISSIONS = $PERMISSIONS | ConvertTo-Json -Depth 3
 			return $PERMISSIONS; break }
+		"pvwagw" { $PERMISSIONS = @{
+				member = @{
+					MemberName=$owner
+					SearchIn=$ldapDIR
+					Permissions = @(
+						@{Key="UseAccounts"
+						Value=$false}
+						@{Key="RetrieveAccounts"
+						Value=$false}
+						@{Key="ListAccounts"
+						Value=$true}
+						@{Key="AddAccounts"
+						Value=$false}
+						@{Key="UpdateAccountContent"
+						Value=$false}
+						@{Key="UpdateAccountProperties"
+						Value=$false}
+						@{Key="InitiateCPMAccountManagementOperations"
+						Value=$false}
+						@{Key="SpecifyNextAccountContent"
+						Value=$false}
+						@{Key="RenameAccounts"
+						Value=$false}
+						@{Key="DeleteAccounts"
+						Value=$false}
+						@{Key="UnlockAccounts"
+						Value=$false}
+						@{Key="ManageSafe"
+						Value=$false}
+						@{Key="ManageSafeMembers"
+						Value=$false}
+						@{Key="BackupSafe"
+						Value=$false}
+						@{Key="ViewAuditLog"
+						Value=$true}
+						@{Key="ViewSafeMembers"
+						Value=$true}
+						@{Key="RequestsAuthorizationLevel"
+						Value=0}
+						@{Key="AccessWithoutConfirmation"
+						Value=$false}
+						@{Key="CreateFolders"
+						Value=$false}
+						@{Key="DeleteFolders"
+						Value=$false}
+						@{Key="MoveAccountsAndFolders"
+						Value=$false}
+					)
+				}
+			}
+			$PERMISSIONS = $PERMISSIONS | ConvertTo-Json -Depth 3
+			return $PERMISSIONS; break }
 	}
 }
 
@@ -227,29 +288,29 @@ Function EPV-AddAccount {
 }
 
 Function MAIN($mortal, $privAccount, $safeDescription) {
-	$result = EPV-CreateSafe $mortal $safeDescription
-
-	If ($result) {
-		Write-Host "Safe created..."
-	} Else {
-		Write-Host "Safe was not created..." -ForegroundColor Red
-		Write-Host "Exiting script..." -ForegroundColor Red
-	}
+	EPV-CreateSafe $mortal $safeDescription
 
 	$result = EPV-AddSafeMember $mortal "all"
 	If ($result) {
-		Write-Host "Safe member was added..."
+		Write-Host "Safe member $mortal was added..."
 	} Else {
-		Write-Host "Safe member was not added..." -ForegroundColor Red
+		Write-Host "Safe member $mortal was not added..." -ForegroundColor Red
 		Write-Host "Exiting script..." -ForegroundColor Red
 	}
 
 	$result = EPV-AddSafeMember $adminGroup "admin"
 	If ($result) {
-		Write-Host "Safe member was added..."
+		Write-Host "Safe member $mortal was added..."
+	} Else {
+		Write-Host "Safe member $mortal was not added..." -ForegroundColor Red
+		Write-Host "Exiting script..." -ForegroundColor Red
+	}
+	
+	$result = EPV-AddSafeMember $pvwagw "pvwagw"
+	If ($result) {
+		Write-Host "Safe member $pvwagw was added..."
 	} Else {
 		Write-Host "Safe member was not added..." -ForegroundColor Red
-		Write-Host "Exiting script..." -ForegroundColor Red
 	}
 
 	$result = EPV-AddAccount
