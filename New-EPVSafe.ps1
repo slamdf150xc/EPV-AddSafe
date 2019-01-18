@@ -90,6 +90,12 @@ Function EPV-CreateSafe($safeName, $description) {
 		$data = $data | ConvertTo-Json
 
 		$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes" -Method POST -Body $data -Headers $header -ContentType 'application/json'
+		
+		If ($ret) {
+			Write-Host "$safeName was created..."
+		} Else {
+			Write-Host "$safeName was not created..." -ForegroundColor Red
+		}
 	} Else {
 		Write-Host "$safeName exists skipping creation..." -ForegroundColor Yellow
 	}
