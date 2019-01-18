@@ -219,7 +219,7 @@ Function Get-SafePermissions($owner, $type) {
 		"pvwagw" { $PERMISSIONS = @{
 				member = @{
 					MemberName=$owner
-					SearchIn=$ldapDIR
+					SearchIn="Vault"
 					Permissions = @(
 						@{Key="UseAccounts"
 						Value=$false}
