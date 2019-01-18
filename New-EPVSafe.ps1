@@ -25,7 +25,7 @@
 ##########################################################################################
 
 param (
-	[Parameter(Mandatory=$true)][switch]$bulk,
+	[Parameter(Mandatory=$true)][bool]$bulk,
 	[string]$csvPath
 )
 
