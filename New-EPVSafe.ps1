@@ -272,7 +272,7 @@ Function Get-SafePermissions($owner, $type) {
 }
 
 Function EPV-AddAccount {
-	$name = "Operating System-" + $platformId + "-" + $address + "-" + $ownerOfSafe
+	$name = "Operating System-" + $platformId + "-" + $address + "-" + $safeToCreate
 	
 	$data = @{
 		account = @{
@@ -281,7 +281,7 @@ Function EPV-AddAccount {
 			address=$address
 			accountName=$name
 			password="SuperSecretPassword"
-			username=$ownerOfSafe
+			username=$safeToCreate
 			disableAutoMgmt=$false		
 		}
 	}
