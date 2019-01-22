@@ -5,7 +5,8 @@
 	that user on the safe with full admin rights then create the credential in the safe.
  
 .EXAMPLE
- 	./New-EPVSafe.ps1
+ 	.\New-EPVSafe.ps1 -bulk $false
+	.\New-EPVSafe.ps1 -bulk $true -csvPath "C:\temp\onboard.csv"
  
 .INPUTS  
 	None via command line
