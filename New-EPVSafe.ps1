@@ -21,6 +21,7 @@
 	1.0 12/05/2018 - Initial release
 	1.1 12/19/2018 - Added fucntion for bulk import
 	1.2 01/18/2019 - Added check for existing safe before creation
+	1.3 01/22/2019 - Added checks for existing members of safe
 #>
 ##########################################################################################
 
@@ -74,8 +75,8 @@ Function EPV-GetAPIAccount {
 Function EPV-CreateSafe($safeName, $description) {
 	$existingSafe = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes?query=$safeName" -Method GET -Headers $header -ContentType 'application/json'
 	
-	If(!($existingSafe.SearchSafesResult)) {
-		Write-Host "$safeName does not exist creating it..." -ForegroundColor Yellow
+	If (!($existingSafe.SearchSafesResult)) {
+		Write-Host "Safe $safeName does not exist creating it..." -ForegroundColor Yellow
 		
 		$data = @{
 			safe = @{
@@ -92,22 +93,35 @@ Function EPV-CreateSafe($safeName, $description) {
 		$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes" -Method POST -Body $data -Headers $header -ContentType 'application/json'
 		
 		If ($ret) {
-			Write-Host "$safeName was created..."
+			Write-Host "Safe $safeName was created..." -ForegroundColor Green
 		} Else {
-			Write-Host "$safeName was not created..." -ForegroundColor Red
+			Write-Host "Safe $safeName was not created..." -ForegroundColor Red
 		}
 	} Else {
-		Write-Host "$safeName exists skipping creation..." -ForegroundColor Yellow
+		Write-Host "Safe $safeName exists skipping creation..." -ForegroundColor Yellow
 	}
 }
 
 Function EPV-AddSafeMember($owner, $permsType) {
+    $userExists = $false
 	
-	$body = (Get-SafePermissions $owner $permsType)
+	$existingUser = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes/$safeToCreate/Members" -Method GET -Headers $header -ContentType 'application/json'
 	
-	$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes/$safeToCreate/Members" -Method POST -Body $body -Headers $header -ContentType 'application/json'
+	Write-Host "Parsing safe members..."
+	ForEach ($user in $existingUser.members.UserName) {
+		If ($user -like $owner) {
+			Write-Host "User $owner is already a member..." -ForegroundColor Yellow
+			$userExists = $true
+		}
+	}
 	
-	return $ret
+	If (!($userExists)) {
+		$body = (Get-SafePermissions $owner $permsType)
+	
+		Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes/$safeToCreate/Members" -Method POST -Body $body -Headers $header -ContentType 'application/json'
+		
+		Write-Host "User $owner was added..." -ForegroundColor Green
+	}
 }
 
 Function Get-SafePermissions($owner, $type) {
@@ -272,6 +286,7 @@ Function Get-SafePermissions($owner, $type) {
 }
 
 Function EPV-AddAccount {
+
 	$name = "Operating System-" + $platformId + "-" + $address + "-" + $safeToCreate
 	
 	$data = @{
@@ -296,31 +311,12 @@ Function EPV-AddAccount {
 Function MAIN($mortal, $privAccount, $safeDescription) {
 	EPV-CreateSafe $mortal $safeDescription
 
-	$result = EPV-AddSafeMember $mortal "all"
-	If ($result) {
-		Write-Host "Safe member $mortal was added..."
-	} Else {
-		Write-Host "Safe member $mortal was not added..." -ForegroundColor Red
-		Write-Host "Exiting script..." -ForegroundColor Red
-	}
-
-	$result = EPV-AddSafeMember $adminGroup "admin"
-	If ($result) {
-		Write-Host "Safe member $mortal was added..."
-	} Else {
-		Write-Host "Safe member $mortal was not added..." -ForegroundColor Red
-		Write-Host "Exiting script..." -ForegroundColor Red
-	}
+	EPV-AddSafeMember $mortal "all"
 	
-	$result = EPV-AddSafeMember $pvwagw "pvwagw"
-	If ($result) {
-		Write-Host "Safe member $pvwagw was added..."
-	} Else {
-		Write-Host "Safe member was not added..." -ForegroundColor Red
-	}
-
+	EPV-AddSafeMember $adminGroup "admin"
+	
 	$result = EPV-AddAccount
-	Write-Host "Account was added..."
+	Write-Host "Script complete!"
 }
 
 ########################## END FUNCTIONS #################################################
