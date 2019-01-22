@@ -296,7 +296,7 @@ Function EPV-AddAccount {
 			address=$address
 			accountName=$name
 			password="SuperSecretPassword"
-			username=$safeToCreate
+			username=$priv
 			disableAutoMgmt=$false		
 		}
 	}
