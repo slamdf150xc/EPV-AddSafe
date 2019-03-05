@@ -334,12 +334,12 @@ If ($bulk) {
 	$csvObject = (Import-Csv $csvPath)
 	
 	ForEach ($item in $csvObject) {
-		$mortal = $item.Name
+		$safeToCreate = $item.Name
 		$priv = $item."Privliged Account"
-		$ADDetails = (Get-ADUser $mortal)
+		$ADDetails = (Get-ADUser $safeToCreate)
 		$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
 		
-		MAIN $mortal $priv $description
+		MAIN $safeToCreate $priv $description
 	}
 } Else {
 	$safeToCreate = Read-Host "What is the name of the user that needs the safe"
