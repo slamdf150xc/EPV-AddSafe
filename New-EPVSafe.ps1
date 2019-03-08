@@ -44,7 +44,7 @@ $adminGroup = "CyberarkVaultAdmins"
 $address = "cyberarkdemo.com"
 $platformId = "WinDomain"
 
-$pvwagw = "PVWAGWAccounts"
+$errorOccured = $false
 
 ########################## START FUNCTIONS ###############################################
 
@@ -117,11 +117,19 @@ Function EPV-AddSafeMember($owner, $permsType) {
 	}
 	
 	If (!($userExists)) {
+		Write-Host "Adding $owner as member of $safeToCreate..."
+		Write-Verbose "Owner: $owner"
 		$body = (Get-SafePermissions $owner $permsType)
-	
-		Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes/$safeToCreate/Members" -Method POST -Body $body -Headers $header -ContentType 'application/json'
+		$body = $body -replace '\s',''
 		
-		Write-Host "User $owner was added..." -ForegroundColor Green
+		Try {
+			$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Safes/$safeToCreate/Members" -Method POST -Body $body -Headers $header -ContentType 'application/json'
+			Write-Host "User $owner was added..." -ForegroundColor Green
+		} Catch {
+			Write-Host "Something went wrong, $owner was not added as a member of $safeToCreate..." -ForegroundColor Red
+			Write-Host $_.Exception.Message -ForegroundColor Red
+			Write-Host $_ -ForegroundColor Red
+		}
 	}
 }
 
@@ -129,8 +137,9 @@ Function Get-SafePermissions($owner, $type) {
 	Switch ($type.ToLower()) {
 		"all" { $PERMISSIONS = @{
 				member = @{
-					MemberName=$owner
-					SearchIn=$ldapDIR
+					MemberName="$owner"
+					SearchIn="$ldapDIR"
+					MembershipExpirationDate=""
 					Permissions = @(
 						@{Key="UseAccounts"
 						Value=$true}
@@ -181,8 +190,9 @@ Function Get-SafePermissions($owner, $type) {
 			return $PERMISSIONS; break }
 		"admin" { $PERMISSIONS = @{
 				member = @{
-					MemberName=$owner
-					SearchIn=$ldapDIR
+					MemberName="$owner"
+					SearchIn="$ldapDIR"
+					MembershipExpirationDate=""
 					Permissions = @(
 						@{Key="UseAccounts"
 						Value=$false}
@@ -226,58 +236,6 @@ Function Get-SafePermissions($owner, $type) {
 						Value=$true}
 						@{Key="MoveAccountsAndFolders"
 						Value=$true}
-					)
-				}
-			}
-			$PERMISSIONS = $PERMISSIONS | ConvertTo-Json -Depth 3
-			return $PERMISSIONS; break }
-		"pvwagw" { $PERMISSIONS = @{
-				member = @{
-					MemberName=$owner
-					SearchIn="Vault"
-					Permissions = @(
-						@{Key="UseAccounts"
-						Value=$false}
-						@{Key="RetrieveAccounts"
-						Value=$false}
-						@{Key="ListAccounts"
-						Value=$true}
-						@{Key="AddAccounts"
-						Value=$false}
-						@{Key="UpdateAccountContent"
-						Value=$false}
-						@{Key="UpdateAccountProperties"
-						Value=$false}
-						@{Key="InitiateCPMAccountManagementOperations"
-						Value=$false}
-						@{Key="SpecifyNextAccountContent"
-						Value=$false}
-						@{Key="RenameAccounts"
-						Value=$false}
-						@{Key="DeleteAccounts"
-						Value=$false}
-						@{Key="UnlockAccounts"
-						Value=$false}
-						@{Key="ManageSafe"
-						Value=$false}
-						@{Key="ManageSafeMembers"
-						Value=$false}
-						@{Key="BackupSafe"
-						Value=$false}
-						@{Key="ViewAuditLog"
-						Value=$true}
-						@{Key="ViewSafeMembers"
-						Value=$true}
-						@{Key="RequestsAuthorizationLevel"
-						Value=0}
-						@{Key="AccessWithoutConfirmation"
-						Value=$false}
-						@{Key="CreateFolders"
-						Value=$false}
-						@{Key="DeleteFolders"
-						Value=$false}
-						@{Key="MoveAccountsAndFolders"
-						Value=$false}
 					)
 				}
 			}
@@ -287,7 +245,7 @@ Function Get-SafePermissions($owner, $type) {
 }
 
 Function EPV-AddAccount {
-
+	Write-Host "Vaulting account $priv..."
 	$name = "Operating System-" + $platformId + "-" + $address + "-" + $safeToCreate
 	
 	$data = @{
@@ -304,9 +262,14 @@ Function EPV-AddAccount {
 	
 	$data = $data | ConvertTo-Json
 	
-	$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Account" -Method POST -Body $data -Headers $header -ContentType 'application/json'
-	
-	return $ret
+	Try {
+		$ret = Invoke-RestMethod -Uri "$baseURI/PasswordVault/WebServices/PIMServices.svc/Account" -Method POST -Body $data -Headers $header -ContentType 'application/json'
+		Write-Host "$priv was vaulted..." -ForegroundColor Green
+	} Catch {
+		Write-Host "Something went wrong, $priv was not vaulted..." -ForegroundColor Red
+		Write-Host $_.Exception.Message -ForegroundColor Red
+		Write-Host $_ -ForegroundColor Red
+	}
 }
 
 Function MAIN($mortal, $privAccount, $safeDescription) {
@@ -316,7 +279,8 @@ Function MAIN($mortal, $privAccount, $safeDescription) {
 	
 	EPV-AddSafeMember $adminGroup "admin"
 	
-	$result = EPV-AddAccount
+	EPV-AddAccount
+	
 	Write-Host "Script complete!"
 }
 
