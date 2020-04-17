@@ -295,7 +295,7 @@ Function ErrorHandler($message, $exceptionMessage, $fullMessage, $logoff) {
 
 Function MAIN($mortal, $safeName, $privAccount, $safeDescription, $user) {
 	EPV-CreateSafe $safeName $safeDescription
-	$existingUsers = Get-SafeMembers $mortal
+	$existingUsers = Get-SafeMembers $safeName
 	EPV-AddSafeMember $mortal "all"	
 	EPV-AddSafeMember $adminGroup "admin"	
 	Remove-SafeMemeber $safeName $user $existingUsers
@@ -319,7 +319,6 @@ If ($bulk) {
 	ForEach ($item in $csvObject) {
 		$userID = $item.Name
 		$safeToCreate = $item."Safe Name"
-		$privAcct = ""
 		$ADDetails = (Get-ADUser $userID)
 		$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
 		
@@ -328,7 +327,6 @@ If ($bulk) {
 } Else {
 	$userID = Read-Host "What is the samAccountName of the user that needs the safe"
 	$safeToCreate = Read-Host "What is the name of the safe you want to create"
-	$privAcct = ""
 	$ADDetails = (Get-ADUser $userID)
 	$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
 	
