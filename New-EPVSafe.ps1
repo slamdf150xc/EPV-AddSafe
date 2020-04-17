@@ -293,7 +293,7 @@ Function ErrorHandler($message, $exceptionMessage, $fullMessage, $logoff) {
 	Exit 1
 }
 
-Function MAIN($mortal, $safeName, $privAccount, $safeDescription, $user) {
+Function MAIN($mortal, $safeName, $safeDescription, $user) {
 	EPV-CreateSafe $safeName $safeDescription
 	$existingUsers = Get-SafeMembers $safeName
 	EPV-AddSafeMember $mortal "all"	
@@ -330,7 +330,7 @@ If ($bulk) {
 	$ADDetails = (Get-ADUser $userID)
 	$description = $ADDetails.GivenName + " " + $ADDetails.Surname + ", " + $ADDetails.SamAccountName
 	
-	MAIN $userID $safeToCreate $privAcct $description $user
+	MAIN $userID $safeToCreate $description $user
 }
 
 EPV-Logoff
